@@ -8,7 +8,7 @@ import argparse
 import sys
 from pathlib import Path
 from typing import Optional
-from config.training_areas import SUPPORTED_MODES, validate_training_mode
+from config.training_areas import parse_positions_string, validate_positions, get_position_names
 
 class CLIHandler:
     """CLI处理器"""
@@ -24,17 +24,18 @@ class CLIHandler:
             formatter_class=argparse.RawDescriptionHelpFormatter,
             epilog="""
 使用示例:
-  python fencing_trainer.py --parts 四部位 --count 5 --interval 2 --output training.mp3
-  python fencing_trainer.py -p 三部位 -c 3 -i 1.5 -o basic_training.mp3
+  python fencing_trainer.py --positions 1,3,5 --count 5 --interval 2 --output training.mp3
+  python fencing_trainer.py -p 3 --count 3 --interval 1.5 -o position3.mp3
+  python fencing_trainer.py --positions 1,2,3,4,5,6,7 --count 2 -o all_positions.mp3
             """
         )
 
         # 必需参数
         parser.add_argument(
-            "-p", "--parts",
-            choices=SUPPORTED_MODES,
+            "-p", "--positions",
+            type=str,
             required=True,
-            help="训练部位模式 (三部位/四部位/五部位)"
+            help="训练部位 (1-7)，逗号分隔。例如: 1 或 1,3,5 或 1,2,3,4,5,6,7"
         )
 
         # 可选参数
@@ -92,7 +93,15 @@ class CLIHandler:
         """
         parsed_args = self.parser.parse_args(args)
 
-        # 验证参数
+        # 解析和验证位置参数
+        try:
+            positions = parse_positions_string(parsed_args.positions)
+            validate_positions(positions)
+        except ValueError as e:
+            print(f"位置参数错误: {e}")
+            sys.exit(1)
+
+        # 验证其他参数
         validation_errors = self._validate_arguments(parsed_args)
         if validation_errors:
             print("参数错误:")
@@ -101,7 +110,8 @@ class CLIHandler:
             sys.exit(1)
 
         return {
-            "training_mode": parsed_args.parts,
+            "positions": positions,
+            "position_names": get_position_names(positions),
             "attack_count": parsed_args.count,
             "interval": parsed_args.interval,
             "output_path": Path(parsed_args.output),
@@ -154,7 +164,7 @@ class CLIHandler:
             summary: 训练摘要字典
         """
         print("=== 训练配置 ===")
-        print(f"训练模式: {config['training_mode']}")
+        print(f"训练部位: {', '.join(config['position_names'])}")
         print(f"攻击次数: {config['attack_count']} 次/部位")
         print(f"间隔时间: {config['interval']} 秒")
         print(f"语音类型: {config['voice']}")
@@ -162,7 +172,7 @@ class CLIHandler:
         print(f"包含静音: {'是' if config['include_silence'] else '否'}")
 
         print("\n=== 训练内容 ===")
-        print(f"训练部位: {', '.join(summary['area_names'])}")
+        print(f"训练部位: {', '.join(summary['position_names'])}")
         print(f"总攻击命令: {summary['total_attack_commands']} 个")
         print(f"预估命令数: {summary['estimated_commands_count']} 个")
 
@@ -204,7 +214,7 @@ def test_cli_handler():
 
     # 测试参数解析
     test_args = [
-        "--parts", "四部位",
+        "--positions", "1,3,5",
         "--count", "3",
         "--interval", "2.5",
         "--output", "test_training.mp3"

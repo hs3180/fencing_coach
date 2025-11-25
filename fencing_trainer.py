@@ -28,7 +28,7 @@ class FencingTrainer:
         """
         self.config = config
         self.cli_handler = CLIHandler()
-        self.command_generator = TrainingCommandGenerator(config["training_mode"])
+        self.command_generator = TrainingCommandGenerator(config["positions"])
         self.tts_generator = TTSGenerator(config["voice"])
         self.audio_processor = AudioProcessor()
 
