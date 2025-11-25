@@ -7,123 +7,116 @@
 from typing import List, Dict
 from pathlib import Path
 import tempfile
-from config.training_areas import (
-    POSITION_CONFIG, get_position_config, TRAINING_TEMPLATES
+from config.wrist_positions import (
+    WRIST_POSITIONS, ATTACK_TYPES, STRAIGHT_CUT_TEMPLATES, get_straight_cut_combination_summary
 )
 
-class TrainingCommandGenerator:
-    """训练命令生成器"""
 
-    def __init__(self, positions: List[int]):
+
+class StraightCutCommandGenerator:
+    """直劈训练命令生成器"""
+
+    def __init__(self, attack_types: List[str], target_areas: List[str]):
         """
-        初始化训练命令生成器
+        初始化直劈命令生成器
 
         Args:
-            positions: 要训练的位置列表 [1, 3, 5]
+            attack_types: 攻击类型列表 ['stationary', 'lunge']
+            target_areas: 目标部位列表 ['3', '4', '5']
         """
-        self.positions = sorted(positions)  # 排序确保一致性
-        self.position_configs = {pos: get_position_config(pos) for pos in self.positions}
+        self.attack_types = attack_types
+        self.target_areas = target_areas
+        self.combinations = [
+            (attack_type, target_area)
+            for attack_type in attack_types
+            for target_area in target_areas
+        ]
 
-    def generate_position_commands(self, position: int, attack_count: int) -> List[str]:
+    def generate_all_commands(self, count: int) -> List[str]:
         """
-        生成单个位置的训练命令序列
+        生成所有组合的训练命令
 
         Args:
-            position: 位置编号
-            attack_count: 攻击次数
-
-        Returns:
-            命令文本列表
-        """
-        position_config = self.position_configs[position]
-        commands = []
-
-        # 1. 训练要求说明
-        start_command = TRAINING_TEMPLATES["start"].format(
-            area_name=position_config.name,
-            description=position_config.description
-        )
-        commands.append(start_command)
-
-        # 2. 准备开始
-        commands.append(TRAINING_TEMPLATES["ready"])
-
-        # 3. 训练口令
-        for i in range(attack_count):
-            # 攻击命令
-            attack_command = TRAINING_TEMPLATES["attack"].format(
-                command_prefix=position_config.command_prefix
-            )
-            commands.append(attack_command)
-
-            # 如果不是最后一次攻击，添加还原命令
-            if i < attack_count - 1:
-                commands.append(TRAINING_TEMPLATES["recover"])
-
-        # 4. 结束提示
-        complete_command = TRAINING_TEMPLATES["area_complete"].format(
-            area_name=position_config.name
-        )
-        commands.append(complete_command)
-
-        return commands
-
-    def generate_full_training_commands(self, attack_count: int) -> List[str]:
-        """
-        生成完整训练的命令序列
-
-        Args:
-            attack_count: 每个位置的攻击次数
+            count: 每个组合的攻击次数
 
         Returns:
             完整命令文本列表
         """
         all_commands = []
-        position_names = [self.position_configs[pos].name for pos in self.positions]
 
-        # 生成总开始命令
-        if len(self.positions) == 1:
-            all_commands.append(f"开始{position_names[0]}直刺训练，请大家做好准备。")
-        else:
-            all_commands.append(f"开始{','.join(position_names)}直刺训练，请大家做好准备。")
+        # 生成所有组合的训练
+        for attack_type, target_area in self.combinations:
+            segment_commands = self._generate_segment_commands(
+                target_area, attack_type, count
+            )
+            all_commands.extend(segment_commands)
 
-        # 为每个位置生成训练命令
-        for i, position in enumerate(self.positions):
-            # 生成当前位置的命令
-            position_commands = self.generate_position_commands(position, attack_count)
-            all_commands.extend(position_commands)
-
-            # 如果不是最后一个位置，添加休息命令
-            if i < len(self.positions) - 1:
-                all_commands.append("休息一下，准备下一个部位的训练。")
-
-        # 添加总结束命令
-        all_commands.append(TRAINING_TEMPLATES["all_complete"])
+        # 全部训练结束
+        all_commands.append(STRAIGHT_CUT_TEMPLATES["all_complete"])
 
         return all_commands
+
+    def _generate_segment_commands(self, target_area: str, attack_type: str, count: int) -> List[str]:
+        """
+        生成单个组合的训练命令
+
+        Args:
+            target_area: 目标部位 ('3', '4', '5')
+            attack_type: 攻击类型 ('stationary', 'lunge')
+            count: 攻击次数
+
+        Returns:
+            命令文本列表
+        """
+        commands = []
+        wrist_config = WRIST_POSITIONS[target_area]
+        attack_config = ATTACK_TYPES[attack_type]
+
+        # 开始本段训练
+        start_command = STRAIGHT_CUT_TEMPLATES["segment_start"].format(
+            target_area=wrist_config["name"],
+            attack_type=attack_config["name"]
+        )
+        commands.append(start_command)
+
+        # 动作指导
+        guidance_command = STRAIGHT_CUT_TEMPLATES["action_guidance"].format(
+            wrist_guidance=wrist_config["guidance"]
+        )
+        commands.append(guidance_command)
+
+        # 计数序列
+        for i in range(1, count + 1):
+            commands.append(STRAIGHT_CUT_TEMPLATES["count"].format(count=i))
+            commands.append(STRAIGHT_CUT_TEMPLATES["hold"])
+            commands.append(STRAIGHT_CUT_TEMPLATES["return_position"])
+
+            # 每20次提醒
+            if i % 20 == 0:
+                commands.append(STRAIGHT_CUT_TEMPLATES["reminder"])
+
+        # 本段训练完成
+        complete_command = STRAIGHT_CUT_TEMPLATES["segment_complete"].format(
+            target_area=wrist_config["name"],
+            attack_type=attack_config["name"]
+        )
+        commands.append(complete_command)
+
+        return commands
 
     def get_training_summary(self, attack_count: int) -> Dict:
         """
         获取训练摘要信息
 
         Args:
-            attack_count: 每个位置的攻击次数
+            attack_count: 每个组合的攻击次数
 
         Returns:
             训练摘要字典
         """
-        position_names = [self.position_configs[pos].name for pos in self.positions]
-        total_commands = len(self.positions) * attack_count
-        total_positions = len(self.positions)
-
-        return {
-            "positions": self.positions,
-            "position_names": position_names,
-            "total_positions": total_positions,
-            "attack_count_per_position": attack_count,
-            "total_attack_commands": total_commands,
-            "estimated_commands_count": total_commands + total_positions * 4 + 2  # 包括开始、结束、准备等命令
-        }
+        return get_straight_cut_combination_summary(
+            self.attack_types, self.target_areas, attack_count
+        )
 
     def validate_attack_count(self, attack_count: int) -> bool:
         """
@@ -135,24 +128,92 @@ class TrainingCommandGenerator:
         Returns:
             是否有效
         """
-        return 1 <= attack_count <= 20
+        return 1 <= attack_count <= 50
+
+
+# 工厂模式方法
+def create_command_generator(config: Dict):
+    """
+    根据配置创建相应的命令生成器
+
+    Args:
+        config: 配置字典，包含模式等信息
+
+    Returns:
+        命令生成器实例
+    """
+    if config["mode"] == "straight-cut":
+        return StraightCutCommandGenerator(
+            config["attack_types"],
+            config["target_areas"]
+        )
+    else:
+        return TrainingCommandGenerator(config["positions"])
 
 def test_command_generator():
     """测试命令生成器"""
+
+    print("=== 测试传统位置训练 ===")
     # 测试多位置训练
     generator = TrainingCommandGenerator([1, 3, 5])
 
-    print("=== 训练摘要 ===")
+    print("训练摘要:")
     summary = generator.get_training_summary(attack_count=3)
     for key, value in summary.items():
-        print(f"{key}: {value}")
+        print(f"  {key}: {value}")
 
-    print("\n=== 命令序列 ===")
+    print("\n命令序列 (前10个):")
     commands = generator.generate_full_training_commands(attack_count=2)
+    for i, command in enumerate(commands[:10], 1):
+        print(f"  {i:2d}. {command}")
+    print(f"  ... (共{len(commands)}个命令)")
+
+    print("\n=== 测试直劈训练 ===")
+    # 测试直劈训练
+    straight_generator = StraightCutCommandGenerator(
+        attack_types=["stationary", "lunge"],
+        target_areas=["3", "4", "5"]
+    )
+
+    print("训练摘要:")
+    straight_summary = straight_generator.get_training_summary(attack_count=5)
+    for key, value in straight_summary.items():
+        print(f"  {key}: {value}")
+
+    print("\n命令序列 (前15个):")
+    straight_commands = straight_generator.generate_all_commands(count=5)
+    for i, command in enumerate(straight_commands[:15], 1):
+        print(f"  {i:2d}. {command}")
+    print(f"  ... (共{len(straight_commands)}个命令)")
+
+def test_straight_cut_generator():
+    """测试直劈命令生成器"""
+    print("=== 直劈训练命令生成器测试 ===")
+
+    # 测试单一组合
+    generator = StraightCutCommandGenerator(
+        attack_types=["stationary"],
+        target_areas=["3"]
+    )
+
+    print("\n单一组合测试 (3部位原地直劈, 3次):")
+    commands = generator.generate_all_commands(count=3)
     for i, command in enumerate(commands, 1):
         print(f"{i:2d}. {command}")
 
     print(f"\n总命令数: {len(commands)}")
+
+    # 测试多个组合
+    multi_generator = StraightCutCommandGenerator(
+        attack_types=["stationary", "lunge"],
+        target_areas=["3", "4"]
+    )
+
+    print("\n=== 多组合测试 ===")
+    summary = multi_generator.get_training_summary(attack_count=2)
+    print("训练摘要:")
+    for key, value in summary.items():
+        print(f"  {key}: {value}")
 
 if __name__ == "__main__":
     test_command_generator()

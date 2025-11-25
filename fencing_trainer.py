@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import List
 
 from src.cli_handler import CLIHandler
-from src.training_commands import TrainingCommandGenerator
+from src.training_commands import create_command_generator
 from src.tts_generator import TTSGenerator
 from src.audio_processor import AudioProcessor
 
@@ -28,7 +28,7 @@ class FencingTrainer:
         """
         self.config = config
         self.cli_handler = CLIHandler()
-        self.command_generator = TrainingCommandGenerator(config["positions"])
+        self.command_generator = create_command_generator(config)
         self.tts_generator = TTSGenerator(config["voice"])
         self.audio_processor = AudioProcessor()
 
@@ -46,9 +46,16 @@ class FencingTrainer:
             if self.config["verbose"]:
                 print("正在生成训练命令...")
 
-            commands = self.command_generator.generate_full_training_commands(
-                self.config["attack_count"]
-            )
+            # 根据训练模式生成命令
+            if self.config["mode"] == "straight-cut":
+                commands = self.command_generator.generate_all_commands(
+                    count=self.config["attack_count"]
+                )
+            else:
+                commands = self.command_generator.generate_full_training_commands(
+                    self.config["attack_count"]
+                )
+
             total_commands = len(commands)
 
             if self.config["verbose"]:
@@ -106,7 +113,7 @@ class FencingTrainer:
     def run(self):
         """运行训练器"""
         try:
-            # 打印训练摘要
+            # 获取训练摘要
             summary = self.command_generator.get_training_summary(self.config["attack_count"])
             self.cli_handler.print_training_summary(self.config, summary)
 

@@ -30,4 +30,4 @@ AUDIO_CONFIG = {
 }
 
 # 默认使用的语音
-DEFAULT_VOICE = "chinese"
+DEFAULT_VOICE = "chinese_male"
