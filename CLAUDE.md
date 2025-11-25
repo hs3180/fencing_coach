@@ -20,14 +20,14 @@ sudo apt-get install ffmpeg  # Ubuntu/Debian
 
 ### Running the Application
 ```bash
-# Basic usage - generate 4-area training audio
-python fencing_trainer.py --parts 四部位 --count 5 --interval 2 --output training.mp3
+# Straight-cut training with multiple attack types and positions
+python fencing_trainer.py --mode stationary,lunge --position 3,4,5 --count 10 --output training.mp3
 
-# Using short flags
-python fencing_trainer.py -p 三部位 -c 3 -i 1.5 -o basic_training.mp3
+# Basic stationary straight-cut training
+python fencing_trainer.py --mode stationary --position 3 --count 5 -o basic_training.mp3
 
-# Advanced 5-area training
-python fencing_trainer.py -p 五部位 -c 5 -i 2.5 -o advanced_training.mp3
+# Advanced lunge training on multiple positions
+python fencing_trainer.py --mode lunge --position 3,4,5 --count 5 -o advanced_training.mp3
 
 # Show help
 python fencing_trainer.py --help
@@ -58,14 +58,19 @@ python src/audio_processor.py
 - **src/audio_processor.py**: Audio processing, concatenation, and MP3 generation using FFmpeg
 
 ### Configuration System
-- **config/training_areas.py**: Defines training modes (3/4/5 areas) with Chinese names and descriptions
+- **config/wrist_positions.py**: Defines wrist positions (3, 4, 5) with attack guidance and Chinese names
 - **config/voices.py**: Voice synthesis configurations for different TTS settings
 
 ### Training Modes
-The application supports three training modes with Chinese terminology:
-- **三部位 (3 areas)**: 头部 (Head), 躯干 (Torso), 手臂 (Arm)
-- **四部位 (4 areas)**: 头部 (Head), 胸前 (Chest), 腰侧 (Waist), 手臂 (Arm)
-- **五部位 (5 areas)**: 头部 (Head), 胸前 (Chest), 腰侧 (Waist), 后背 (Back), 手臂 (Arm)
+The application supports straight-cut training with different attack types:
+- **原地直劈 (Stationary)**: No footwork, focuses on arm extension and wrist action
+- **弓步直劈 (Lunge)**: Combines footwork with straight-cut attacks
+
+### Target Positions
+Training focuses on three wrist positions:
+- **三部位 (Position 3)**: Inner wrist area
+- **四部位 (Position 4)**: Center wrist area
+- **五部位 (Position 5)**: Outer wrist area
 
 ### Workflow
 1. Parse CLI arguments and validate parameters
